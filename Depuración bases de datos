@@ -1,0 +1,571 @@
+
+###########################################################################################################
+############################ DEPURACION MATRICES PROYECTO DELIMITACION PARAMOS ############################# 
+###########################################################################################################
+
+#################################################################################################
+### Codigo escrito por Paola Montoya para el Laboratorio de Genetica de Conservacion del IAvH ###
+### Agosto de 2015. El objetivo es automatizar y agilizar la depuracion de las bases de datos ###
+### generadas en el marco del Proyecto de Delimitacion de Paramos ###############################
+#################################################################################################
+
+#################################################################################################
+################################# PRIMERA PARTE: MATRIZ ESTRUCTURAL ##############################
+#################################################################################################
+
+###### Definicion de directorio de trabajo y de la localidad (Paramo) ######
+setwd("C:/Users/labh/Documents/Ghis/Paramos/Iguaque")
+rm(list=ls(all=T))
+localidad <- "Iguaque"
+
+###### Cargar la matriz estructural 
+### La matriz estructural debe ser un archivo de texto separado por tabulaciones. La matriz solo debe contener
+### caracteres alfa-numericos sin tildes y guiones. No debe contender simbolos de porcentajes (%) o de grados 
+### centigrados (C). 
+### La primer fila de la matriz de SIB (DarwinCore) debe ser eliminada de manera que los nombres de las columnas
+### sean aquellos adaptados al espanol.
+### Las columnas y filas en blanco deben ser eliminadas.
+### IMPORTANTE: Debe verificarse que exista uniformidad en los nombres de los transectos y de las estaciones
+
+matriz <- read.delim("C:/Users/labh/Documents/Ghis/Paramos/Iguaque/levantamiento iguaque completa vf.txt",header=T,dec=",")
+
+######################################################################################
+###################### I. Organizacion de nombres en la matriz ######################
+######################################################################################
+
+###### Cambio en los nombres de las columnas ###### 
+nombresColumnasMatrizInicial <- colnames(matriz)
+
+f1_colNombresMatriz <- function(x)
+{
+  m <- strsplit(x,"[.]")
+  d <- paste(unlist(m),collapse=" ")
+  d <- gsub("  ", " ", d, fixed = TRUE)
+  return(d)
+}
+
+nombresColumnasMatrizFinal <- unlist(lapply(nombresColumnasMatrizInicial,f1_colNombresMatriz))
+matriz <- data.frame("Especie"=NA,matriz)
+colnames(matriz) <- c("Especie",nombresColumnasMatrizFinal)
+
+
+######  Identificacion de registros no determinados hasta especie ###### 
+######  Reorganizacion de nombres cientificos ###### 
+### @Return:
+### Registros a nivel de especie: Genero_especie. 
+### Registros a nivel de genero: Genero_sp.Numero. Si este no tiene un morfotipo (sp.Numero) asignado sera: 
+### Genero_genero. 
+### Registros a nivel de familia: Familia_Familia.
+### En plantas cuando el epiteto especifico sea compuesto: Genero_especie-especie.
+
+posicionPlantas <- as.numeric(rownames(matriz[which(matriz$Reino == "Plantae"),]))
+posicionNoPlantas <- as.numeric(rownames(matriz[-which(matriz$Reino == "Plantae"),]))
+sppInicialesNoPlantas <- paste(matriz[-posicionPlantas,"Nombre cientifico"],matriz[-posicionPlantas,"Categoria del taxon"],matriz[-posicionPlantas,"Categoria original del taxon"])
+sppInicialesPlantas <- paste(matriz[posicionPlantas,"Nombre cientifico"],matriz[posicionPlantas,"Categoria del taxon"],matriz[posicionPlantas,"Categoria original del taxon"])
+
+
+funEspeciePlantas <- function(x)
+{
+  m <- unlist(lapply(as.character(x),strsplit," "))
+  m <- gsub(" ","",m)
+  m <- gsub("Especie","",m)
+  m <- gsub("Genero","",m)
+  m <- gsub("Familia","",m)
+  m <- gsub("cf.","",m)
+  m <- gsub("aff.","",m)
+  m <- gsub("var.","V",m)
+  m <- gsub("Variedad","V",m)
+  s <- c()
+  if(length(m) != 0)
+  {
+    for(i in 1:length(m))
+    {
+      a <- m[i]
+      if(a!="")
+      {
+        s<-c(s,a)
+      }
+      else
+      {
+        next
+      }
+    }
+    if(length(s)==0)
+    {
+      s <- NA
+    }
+    else if(length(s)==3)
+    {
+      epit <- c()
+      if(is.numeric(s[3])) 
+      {
+        sust <- paste(s[2],s[3],sep="")
+        epit <- c(epit, sust) 
+      }
+      if(!is.numeric(s[3])) 
+      {
+        if(s[2]==s[3]) {epit <- c(epit, s[2])}
+        if(s[2]!=s[3]) 
+        {
+          corte <- strsplit(s[3],"[.]")[[1]][1]
+          if(corte!="sp") {epit <- c(epit, paste(s[2],s[3],sep="-"))}
+          if(corte=="sp") {epit <- c(epit, s[2])}
+        }
+      }
+      s <- paste(s[1],epit,sep="_")    }
+    else if(length(s)==1)
+    {
+      s <- paste(s[1],"genero",sep="_")
+    }
+    else if(length(s)==2)
+    {
+      s <- paste(s,collapse="_")
+    }
+    else if(length(s)>3)
+    {
+      s <- gsub("V","",s)
+      s <- paste(s[1],s[2],sep="_")
+    }
+
+  }
+  if(length(m) == 0)
+  {
+    s <- NA
+  }
+  return(s)
+}  
+
+
+funEspecieNoPlantas <- function(x)
+{
+  m <- unlist(lapply(as.character(x),strsplit," "))
+  m <- gsub(" ","",m)
+  m <- gsub("Especie","",m)
+  m <- gsub("Genero","",m)
+  m <- gsub("Familia","",m)
+  m <- gsub("cf.","",m)
+  m <- gsub("aff.","",m)
+  s <- c()
+  if(length(m) != 0)
+  {
+    for(i in 1:length(m))
+    {
+      a <- m[i]
+      if(a!="")
+      {
+        s<-c(s,a)
+      }
+      else
+      {
+        next
+      }
+    }
+    if(length(s)==0)
+    {
+      s <- NA
+    }
+    else if(length(s)>=3)
+    {
+      s <- paste(s[1],s[2],sep="_")
+    }
+    else if(length(s)==1)
+    {
+      s <- paste(s[1],"genero",sep="_")
+    }
+    else if(length(s)==2)
+    {
+      s <- paste(s,collapse="_")
+    }
+  }
+  if(length(m) == 0)
+  {
+    s <- NA
+  }
+  return(s)
+}  
+
+EspeciePlantas <- unlist(lapply(sppInicialesPlantas,funEspeciePlantas))
+names(EspeciePlantas) <- posicionPlantas
+EspecieNoPlantas <- unlist(lapply(sppInicialesNoPlantas,funEspecieNoPlantas))
+names(EspecieNoPlantas) <- posicionNoPlantas
+Especies <- c(EspeciePlantas,EspecieNoPlantas)
+nombresIniciales <- unique(EspeciePlantas,EspecieNoPlantas)
+
+###### Homogenizacion de nombres de especies ######
+### WARNING: En los casos donde el nombre este compuesto por "sp.", "sp.1","sp.2"...etc. No seran revisados ni homogenizados
+
+for(i in 1:length(nombresIniciales))
+{
+  m <- nombresIniciales[i]
+  n <- strsplit(m,"_")[[1]][2]
+  if(grepl("sp.",n,fixed=TRUE))
+  {
+  	next
+  }
+  if(!grepl("sp.",n,fixed=TRUE))
+  {
+  	Especies[agrep(m,Especies)] <- m
+  }
+}
+
+Especies<-Especies[order(as.numeric(names(Especies)))]
+matriz[as.numeric(names(Especies)),1] <- Especies
+
+
+###### Asignacion de genero y epiteto especifico ######
+
+matriz$Genero <- unlist(lapply(Especies,function(x){ strsplit(x,"_")[[1]][1] }))
+matriz[,match("Epiteto especifico",colnames(matriz))] <- unlist(lapply(Especies,function(x){ strsplit(x,"_")[[1]][2] }))
+ 
+ 
+###### Deteccion de categoria del taxon: Especie, Genero o Familia ######
+
+familias <- unique(matriz$Familia)
+
+f_categoriaTaxon <- function(x)
+{
+	m <- unlist(lapply(as.character(x),strsplit,"_"))
+  	m <- gsub(" ","",m)
+  	s <- c()
+  	if(!is.na(m[1]))
+  	{
+  		if(!is.na(match(m[1],familias)))
+  		{
+  			cat <- "Familia"
+			  s <- c(s,cat)
+  		}
+  		else
+  		{
+  			if(m[2] == "genero")
+			  {
+  			  cat <- "Genero"
+  			  s <- c(s,cat)
+  			}
+        else
+        {
+          if(grepl("sp.",m[2],fixed=TRUE))
+          {
+            cat <- "Genero"
+            s <- c(s,cat)
+          }
+          else
+          {
+            cat <- "Especie"
+            s <- c(s,cat)
+          }
+        }
+  		} 
+  	}
+  	if(is.na(m[1]))
+  	{
+  		s <- c(s,NA)
+  	}
+	return(s)
+}
+
+matriz[,match("Categoria del taxon",colnames(matriz))] <- unlist(lapply(Especies,f_categoriaTaxon))
+
+
+######################################################################################
+######################### II. Selecci??n de matrices por grupo #########################
+######################################################################################
+
+############################## Plantas #############################
+# @ Especie
+# @ Codigo transecto 
+# @ Codigo estacion  
+# @ Codigo parcela
+# @ Codigo Subparcela
+# @ Comentarios de la ubicacion
+# @ Elevacion minima en metros
+# @ Nombre cientifico
+# @ Familia
+# @ Genero
+# @ Epiteto especifico
+# @ Categoria del taxon
+# @ Numero de estratos 1
+# @ Altura total m 1  
+# @ Diametro menor de la copa m	1
+# @ Diametro mayor de la copa m	1
+# @ Cobertura total m 1
+# @ Porcentaje Cobertura para herbazales 1 	
+# @ Circunferencia basal cm	1
+# @ Diametro basal (cm)
+# @ Area basal
+# @ Habito
+################################################################## 
+
+#### Solo se dejaran registros de la clase Magnoliopsida. Briofitos, helechos y otros seran eliminados
+plantas <- matriz[which(matriz$Clase == "Magnoliopsida" | matriz$Clase == "Liliopsida" | matriz$Clase == "Pinopsida"),]
+
+colReqPlantas <- c("Especie","Codigo transecto","Codigo estacion","Codigo parcela","Codigo Subparcela","Comentarios de la ubicacion","Elevacion minima en metros","Nombre cientifico","Familia","Genero","Epiteto especifico","Categoria del taxon","Numero de estratos","Altura total m 1","Diametro menor de la copa m 1","Diametro mayor de la copa m 1","Cobertura total m 1","porcentaje Cobertura para herbazales 1","Circunferencia basal cm 1","Diametro basal (cm) 1","Area basal 1","Habito 1")
+colReqPlantas <- match (colReqPlantas,colnames(plantas))
+plantas <- plantas[,colReqPlantas]
+
+###### Eliminacion de registros determinados hasta familia ######
+famRemove <- which(plantas[,match("Categoria del taxon",colnames(plantas))]=="Familia")
+
+if(length(famRemove)==0)
+{
+  print("No hay registros que lleguen hasta el nivel de Familia o Genero")
+}
+
+if(length(famRemove)!=0)
+{
+  plantas <- plantas[-famRemove,]
+}
+rm(famRemove)
+
+### Pasar a minusculas todas las columnas involucradas con nomenclatura del taxon.
+plantas$"Nombre cientifico" <- tolower(plantas$"Nombre cientifico")
+plantas$"Familia" <- tolower(plantas$"Familia")
+plantas$"Genero" <- tolower(plantas$"Genero")
+plantas$"Epiteto especifico" <- tolower(plantas$"Epiteto especifico")
+
+
+### Crear columna con datos para filogenia. La columna llevar?? el nombre de la filogenia
+phylomatic <- paste(plantas$"Familia",plantas$"Genero",plantas$"Especie",sep="/")
+
+plantas <- cbind(plantas,phylomatic)
+head(plantas)
+###### Generacion de archivo con matriz depurada Plantas. Sera guardado en el directorio de trabajo ######
+write.table(plantas,paste(localidad,"mEstructuralDepuradaPlantas.txt",sep="_"))
+
+
+############################## Aves ###############################
+# @ Especie
+# @ Codigo transecto 
+# @ Codigo estacion  
+# @ Comentarios de la ubicacion
+# @ Elevacion minima en metros
+# @ Nombre cientifico
+# @ Familia
+# @ Genero
+# @ Epiteto especifico
+# @ Categoria del taxon
+##################################################################
+
+aves <- matriz[which(matriz$Clase == "Aves"),]
+
+colReqAves<- c("Especie","Codigo transecto","Codigo estacion","Comentarios de la ubicacion","Elevacion minima en metros","Nombre cientifico","Familia","Genero","Epiteto especifico","Categoria del taxon")
+colReqAves <- match (colReqAves,colnames(aves))
+aves <- aves[,colReqAves]
+
+###### Eliminacion de registros que solo lleguen hasta familia o genero ######
+famRemove <- which(aves[,match("Categoria del taxon",colnames(aves))]=="Familia")
+genRemove <- which(aves[,match("Categoria del taxon",colnames(aves))]=="Genero")
+toRemove <- c(famRemove,genRemove)
+
+if(length(famRemove)==0)
+{
+  print("No hay registros que lleguen hasta el nivel de Familia o Genero")
+}
+
+if(length(famRemove)!=0)
+{
+  aves <- aves[-toRemove,]
+}
+rm(famRemove)
+rm(genRemove)
+rm(toRemove)
+
+
+###### Reemplazo de nombre cientifico para filogenia ######
+### Cargar el archivo de sinonimias para nombres de aves 
+### @ Se crear?? una columna denominada "TipLabel" donde se almacenar?? el nombre del terminal de la filogenia estandarizado.
+sinonimias <- read.delim("C:/Users/Usuario/Documents/Ghis/Humboldt/rasultados paramos/sinonimias_aves.txt", header=T)
+head(sinonimias)
+
+spAves <- aves$Especie
+fxAveNombres <- function(x)
+{
+  m <- strsplit(x,"_")
+  d <- paste(unlist(m),collapse=" ")
+  return(d)
+}
+TipLabel <- unlist(lapply(spAves,fxAveNombres))
+unicosAves <- unique(TipLabel)
+
+for(i in 1:length(unicosAves))
+{
+  muestra <- unicosAves[i]
+  if(muestra=="NA") {next}
+  if(muestra!="NA")
+  {
+    m <- match(muestra,sinonimias$name)
+    if(is.na(m))
+    { 
+      m <- match(muestra,sinonimias$SACC)
+      if(is.na(m))
+      {
+        m <- match(muestra,sinonimias$Birdlife_2)
+        if(is.na(m))
+        {
+          m <- match(muestra,sinonimias$name_LBAB)
+          if(is.na(m))
+          {
+            print(paste(muestra,i,sep=" "))
+            TipLabel[agrep(muestra,TipLabel)] <- NA
+          }
+        }
+      }
+    }
+    if(!is.na(m))
+    {
+      newName <- as.character(sinonimias[m,"TipLabel"])
+      TipLabel[agrep(muestra,TipLabel)] <- newName
+    }
+  }
+}
+
+aves <- cbind(TipLabel,aves)
+
+### Tabla con las filas en las que no se encontr?? coincidencia para el nombre de la filogenia
+aves[which(is.na(aves$TipLabel)),]
+
+###### Generacion de archivo con matriz depurada Aves. Sera guardado en el directorio de trabajo ######
+write.table(aves,paste(localidad,"mEstructuralDepuradaAves.txt",sep="_"))
+
+
+############################## Anifibios ##############################
+# @ Especie
+# @ Codigo transecto 
+# @ Codigo estacion  
+# @ Comentarios de la ubicacion
+# @ Elevacion minima en metros
+# @ Nombre cientifico
+# @ Familia
+# @ Genero
+# @ Epiteto especifico
+# @ Categoria del taxon
+##################################################################
+
+anfibios <- matriz[which(matriz$Clase == "Amphibia"),]
+
+colReqAnfibios <- c("Especie","Codigo transecto","Codigo estacion","Comentarios de la ubicacion","Elevacion minima en metros","Nombre cientifico","Familia","Genero","Epiteto especifico","Categoria del taxon")
+colReqAnfibios <- match (colReqAnfibios,colnames(anfibios))
+anfibios <- anfibios[,colReqAnfibios]
+
+###### Eliminacion de registros que solo lleguen hasta familia ######
+famRemove <- which(anfibios[,match("Categoria del taxon",colnames(anfibios))]=="Familia")
+
+if(length(famRemove)==0)
+{
+  print("No hay registros que lleguen hasta el nivel de Familia")
+}
+
+if(length(famRemove)!=0)
+{
+  anfibios <- anfibios[-famRemove,]
+}
+rm(famRemove)
+
+###### Generacion de archivo con matriz depurada Anfibios. Sera guardado en el directorio de trabajo ######
+write.table(anfibios,paste(localidad,"mEstructuralDepuradaAnfibios.txt",sep="_"))
+
+
+########################################################################################
+############################## III. Calculo de abundancias ##############################
+########################################################################################
+
+### IMPORTANTE: Debe verificarse que exista uniformidad en los nombres de los transectos y de las estaciones
+
+### Plantas ###
+Transectos=paste(plantas$"Codigo transecto", plantas$"Codigo estacion", sep="-")
+plantas <- cbind(plantas,Transectos)
+rm(Transectos)
+
+### Aves ###
+Transectos=paste(aves$"Codigo transecto", aves$"Codigo estacion", sep="-")
+aves <- cbind(aves,Transectos)
+rm(Transectos)
+
+### Anfibios ###
+Transectos=paste(anfibios$"Codigo transecto", anfibios$"Codigo estacion", sep="-")
+anfibios <- cbind(anfibios,Transectos)
+rm(Transectos)
+
+Transectos <- unique(c(as.character(plantas$Transectos),as.character(aves$Transectos),as.character(anfibios$Transectos)))
+
+
+####################################### Plantas ####################################### 
+abundaPlantas <- data.frame()
+for(i in 1:length(Transectos))
+{
+  matrizConteo <- matrix(nrow=0,ncol=ncol(plantas)+1)
+  trans <- plantas[which(plantas$Transectos==Transectos[i]),]
+  if(nrow(trans)== 0) { next }
+  if(nrow(trans)>= 1)
+  {
+  	unicosNombres <- unique(trans$Especie)
+  	for(j in 1:length(unicosNombres))
+  	{
+  		cuenta <-trans[which(trans$Especie==unicosNombres[j]),]
+  		abundancia <- nrow(cuenta)
+  		nuevaMatrizConteo <- cbind(cuenta,abundancia)
+  		nuevaMatrizConteo <- nuevaMatrizConteo[1,]
+  		matrizConteo <- rbind(matrizConteo,nuevaMatrizConteo)
+  	}
+  	abundaPlantas <- rbind(abundaPlantas,matrizConteo)
+  }
+}
+
+###### Generacion de archivo con matriz depurada Plantas y abundancias para cada estacion por transecto. Sera guardado en el directorio de trabajo ######
+write.table(abundaPlantas,paste(localidad,"mEstDepAbund_Plantas.txt",sep="_"))
+
+
+####################################### Aves ####################################### 
+abundaAves <- data.frame()
+for(i in 1:length(Transectos))
+{
+  matrizConteo <- matrix(nrow=0,ncol=ncol(aves)+1)
+  trans <- aves[which(aves$Transectos==Transectos[i]),]
+  if(nrow(trans)== 0) { next }
+  if(nrow(trans)>= 1)
+  {
+  	unicosNombres <- unique(trans$Especie)
+  	for(j in 1:length(unicosNombres))
+  	{
+  		cuenta <-trans[which(trans$Especie==unicosNombres[j]),]
+  		abundancia <- nrow(cuenta)
+  		nuevaMatrizConteo <- cbind(cuenta,abundancia)
+  		nuevaMatrizConteo <- nuevaMatrizConteo[1,]
+  		matrizConteo <- rbind(matrizConteo,nuevaMatrizConteo)
+  	}
+  	abundaAves <- rbind(abundaAves,matrizConteo)
+  }
+}
+
+###### Generacion de archivo con matriz depurada Aves y abundancias para cada estacion por transecto. Sera guardado en el directorio de trabajo ######
+write.table(abundaAves,paste(localidad,"mEstDepAbund_Aves.txt",sep="_"))
+
+
+####################################### Anfibios ####################################### 
+abundaAnfibios <- data.frame()
+for(i in 1:length(Transectos))
+{
+  matrizConteo <- matrix(nrow=0,ncol=ncol(anfibios)+1)
+  trans <- anfibios[which(anfibios$Transectos==Transectos[i]),]
+  if(nrow(trans)== 0) { next }
+  if(nrow(trans)>= 1)
+  {
+  	unicosNombres <- unique(trans$Especie)
+  	for(j in 1:length(unicosNombres))
+  	{
+  		cuenta <-trans[which(trans$Especie==unicosNombres[j]),]
+  		abundancia <- nrow(cuenta)
+  		nuevaMatrizConteo <- cbind(cuenta,abundancia)
+  		nuevaMatrizConteo <- nuevaMatrizConteo[1,]
+  		matrizConteo <- rbind(matrizConteo,nuevaMatrizConteo)
+  	}
+  	abundaAnfibios <- rbind(abundaAnfibios,matrizConteo)
+  }
+}
+
+###### Generacion de archivo con matriz depurada Anfibios y abundancias para cada estacion por transecto. Sera guardado en el directorio de trabajo ######
+write.table(abundaAnfibios,paste(localidad,"mEstDepAbund_Anfibios.txt",sep="_"))
+
+
+########################################################################################################
+###################################### FIN DE LA PRIMERA PARTE #######################################
+########################################################################################################
