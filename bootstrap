@@ -1,0 +1,173 @@
+
+############################################################################################
+comunidades<-vector(mode="list",length=nrow(mPlots))
+
+lista=vector(mode="list",length=1000)
+
+for (j in 1:nrow(mPlots))
+
+{
+	
+
+		for (i in 1:1000)
+
+		{
+	
+	
+		nuevaPlots=mPlots[j,]
+
+
+		b=rep(names(nuevaPlots), nuevaPlots)
+
+		c=sample(b, length(b), replace=TRUE)
+
+
+		r=rep(1, length(b))
+		names(r)=c
+
+		suma <- aggregate(r, by=list(names(r)), FUN=sum)
+
+		rownames(suma)=suma$Group.1;suma$Group.1=NULL
+		suma=t(suma)
+		
+		lista[[i]]=suma
+
+		}
+		
+	comunidades[j]=list(lista)
+	
+}
+#############################################################################################
+
+
+alfa<-vector(mode="list", length=nrow(mPlots))
+
+boots2=vector(mode="list",length=1000)
+
+for (j in 1:length(alfa))
+
+{
+
+for (i in 1:1000)
+
+		{
+
+zz=as.matrix(comunidades[[j]][[i]])
+
+nuevaDist=as.matrix(distRasgos)
+
+nuevaDist=nuevaDist[colnames(zz),colnames(zz)]
+
+alfaFunc=mpd(zz, nuevaDist)
+
+boots2[[i]]=alfaFunc
+
+		}
+
+alfa[j]=list(boots2)
+		
+}	
+
+a1=unlist(alfa[[1]])
+a2=unlist(alfa[[2]])
+a3=unlist(alfa[[3]])
+a4=unlist(alfa[[4]])
+a5=unlist(alfa[[5]])
+a6=unlist(alfa[[6]])
+
+boxplot(a1, a2, a3, a4, a5, a6)
+		
+		
+#############################################################################################
+
+
+
+
+#############################################################################################
+
+betaComm<-vector(mode="list", length=nrow(mPlots)-1)
+
+boots3=vector(mode="list",length=1000)
+
+for (j in 1:nrow(mPlots))
+
+{
+
+		for (i in 1:1000)
+
+				{
+
+
+
+				comm1=comunidades[[j]][[i]]
+				commVec1=as.vector(comm1)
+				names(commVec1)=colnames(comm1)
+				
+				comm2=comunidades[[j+1]][[i]]
+				commVec2=as.vector(comm2)
+				names(commVec2)=colnames(comm2)
+
+				commName=unique(c(colnames(comm1), colnames(comm2)))
+
+
+				nueva=matrix(, nrow = 2, ncol = length(commName))
+				colnames(nueva)=commName
+
+					for (k in 1:ncol(nueva))
+
+							{
+	
+								row=names(nueva[1,k])
+	
+								nueva[1,which(colnames(nueva)==row)]<- commVec1[row]
+	
+	
+								nueva[2,which(colnames(nueva)==row)]<- commVec2[row]
+	
+	
+							}
+
+				nueva[is.na(nueva)]<-0
+
+				nuevaPlots=nueva
+
+				nuevaDist=as.matrix(distRasgos)
+				nuevaDist=nuevaDist[commName,commName]
+				nuevaDist=as.dist(nuevaDist)
+
+				a=comdist(nuevaPlots, nuevaDist, abundance.weighted=T)
+				boots3[i]<-a[1]
+
+				}
+				
+		betaComm[j]=list(boots3)
+		
+
+}
+
+b1=unlist(betaComm[[1]])
+b2=unlist(betaComm[[2]])
+b3=unlist(betaComm[[3]])
+b4=unlist(betaComm[[4]])
+b5=unlist(betaComm[[5]])
+
+boxplot(b1, b2, b3, b4, b5)
+
+mean(unlist(betaComm[[i]]))
+sd(unlist(betaComm[[i]]))
+
+#############################################################################################
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
